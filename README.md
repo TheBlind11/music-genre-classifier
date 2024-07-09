@@ -48,22 +48,22 @@
 
 	Una presentazione come esposizione del progetto va bene
 
-### SETUP
+## SETUP
 
 - Utilizzare PyTorch
 - Utilizzare libreria "librosa" (contiene tutte le trasformate)
 - Le immagini degli spettrogrammi del dataset https://www.kaggle.com/datasets/andradaolteanu/gtzan-dataset-music-genre-classification sono state generate tramite Short-time Fourier Transform 
 
-### TODO
+## TODO
 
-# Pre-processing
+### Pre-processing
 
 - [ ] Divisione in battiti delle varie tracce (BPM)
 - [ ] Valutare se serve finestramento
 - [ ] Applicazione delle trasformate (Short-time Fourier transform, Wavelet, Mel-Frequency Cepstral Coefficients (MFCC)) -> spettrogramma
 - [ ] Processing degli spettrogrammi per migliorere qualità immagini (es. logaritmica)
 
-# Training
+### Training
 
 - [ ] Divisione dataset (train/test split)
 - [ ] Scelta architettura
