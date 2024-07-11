@@ -31,16 +31,21 @@ def process_dataset(dataset_path):
                         continue
     return bpm_data
 
-def get_segment(filename, bpm, segment_lenght=5):
+def get_segments(filename, bpm, segment_lenght=5):
     try:
         y, sr = librosa.load(filename)
         beat_duration = 60 / bpm # BPS duration
         segment_duration = beat_duration * segment_lenght # Duration of each segment in seconds
         segment_samples = int(segment_duration * sr)
         
-        segment = y[:segment_samples] # Take the first segment
+        segments = []
+        for start_sample in range(0, len(y), segment_samples): # From 0 to track lenght with segment lenght steps
+            end_sample = start_sample + segment_samples
+            segment = y[start_sample:end_sample]
+            if len(segment) == segment_samples:
+                segments.append(segment)
             
-        return segment, sr
+        return segments, sr
     except Exception as e:
         print(f"Error processing {filename} for segmentation: {e}")
         return None, None
@@ -51,16 +56,18 @@ def process_save_segment(dataset_path, bpm_data, output_path):
             continue
         
         track_path = os.path.join(dataset_path, genre, track)
-        segment, sr = get_segment(track_path, bpm)
+        segments, sr = get_segments(track_path, bpm)
         
-        if segment is not None:
-            genre_output_path = os.path.join(output_path, genre)
-            os.makedirs(genre_output_path, exist_ok=True)
+        if segments is not None:
+            track_name = os.path.splitext(track)[0] # Remove .wav extension
+            track_output_path = os.path.join(output_path, genre, track_name)
+            os.makedirs(track_output_path, exist_ok=True)
             
-            segment_name = f"{os.path.splitext(track)[0]}_segment.wav"
-            segment_path = os.path.join(genre_output_path, segment_name)
-            sf.write(segment_path, segment, sr)
-            print(f"Saved segment for {track} in {genre}")
+            for i, segment in enumerate(segments):
+                segment_filename = f"{track_name}_segment_{i+1}.wav"
+                segment_path = os.path.join(track_output_path, segment_filename)
+                sf.write(segment_path, segment, sr)
+                print(f"Saved segment {i+1} for {track} in {genre}")
 
 
 dataset_path = "Data/genres_original"

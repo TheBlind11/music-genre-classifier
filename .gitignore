@@ -227,5 +227,6 @@ pyrightconfig.json
 
 # Data
 Data
+Segmented_genres
 
 # End of https://www.toptal.com/developers/gitignore/api/macos,visualstudiocode,python
