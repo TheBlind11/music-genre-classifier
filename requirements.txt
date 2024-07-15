@@ -3,3 +3,4 @@ pywavelets
 librosa
 soundfile
 numpy
+matplotlib
