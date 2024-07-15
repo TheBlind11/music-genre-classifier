@@ -36,12 +36,12 @@ def generate_spectrograms(segment_path, genre, track_name, segment_name, output_
     coeffs, freqs = pywt.cwt(y, scales=np.arange(1, 128), wavelet='morl', sampling_period=1/sr)
     wavelet_output_path = os.path.join(wavelet_dir, f"{segment_name}_wavelet.png")
     plt.figure(figsize=(10, 4))
-    plt.imshow(np.abs(coeffs), extent=[0, len(y)/sr, 1, 128], cmap='PRGn', aspect='auto',
-               vmax=abs(coeffs).max(), vmin=-abs(coeffs).max())
-    plt.colorbar(format='%+2.0f dB')
+    plt.imshow(np.abs(coeffs), extent=[0, len(y)/sr, 1, 128], cmap='PRGn', aspect='auto')
+    # [0, len(y)/sr]: Maps the x-axis from 0 to the duration of the audio signal in seconds
+    # [1, 128]: Maps the y-axis from 1 to 128, which corresponds to the scales used in the Wavelet Transform.
     plt.title(f"Wavelet Spectrogram of {segment_name}")
     plt.tight_layout()
-    plt.savefig(wavelet_output_path)
+    plt.savefig(wavelet_output_path, bbox_inches='tight', pad_inches=0)
     plt.close()
     
     # Mel-Frequency Cepstral Coefficients (MFCC)
