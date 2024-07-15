@@ -9,10 +9,9 @@ def save_spectrogram_image(S, sr, output_path, title):
     # Save the spectrogram as a matplot image
     plt.figure(figsize=(10, 4))
     librosa.display.specshow(S, sr=sr, x_axis='time', y_axis='log')
-    plt.colorbar(format='%+2.0f dB')
     plt.title(title)
     plt.tight_layout()
-    plt.savefig(output_path)
+    plt.savefig(output_path, bbox_inches='tight', pad_inches=0)
     plt.close()
 
 def generate_spectrograms(segment_path, genre, track_name, segment_name, output_base_path):
