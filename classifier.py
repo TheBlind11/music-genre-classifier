@@ -105,7 +105,7 @@ model = WaveNet(num_classes=num_classes, **wavenet_config).to(device)
 criterion = nn.CrossEntropyLoss()
 optimizer = optim.Adam(model.parameters(), lr=0.001)
 
-output_path = "saves"
+output_path = "trained_nets"
 
 if not os.path.exists(output_path):
     os.makedirs(output_path)
