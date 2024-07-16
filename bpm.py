@@ -103,8 +103,8 @@ def bps_analisys(dataset_path):
 
 
 
-dataset_path = "Data/genres_original"
-output_path = "Segmented_genres"
+dataset_path = "data/genres_original"
+output_path = "segmented_genres"
 #bps_analisys(dataset_path)
 bps_data = process_dataset(dataset_path)
 process_save_segment(dataset_path, bps_data, output_path)

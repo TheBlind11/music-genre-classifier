@@ -6,6 +6,7 @@ from torchvision import transforms
 import torchaudio
 import os
 from sklearn.model_selection import StratifiedKFold
+from sklearn.metrics import precision_recall_fscore_support
 from tqdm import tqdm
 
 class MusicDataset(Dataset):
@@ -81,7 +82,7 @@ class WaveNet(nn.Module):
 
 transform = None
 
-dataset = MusicDataset(root_dir='Segmented_genres', transform=transform)
+dataset = MusicDataset(root_dir='segmented_genres', transform=transform)
 
 k_folds = 3
 skf = StratifiedKFold(n_splits=k_folds, shuffle=True, random_state=42)
@@ -104,7 +105,15 @@ model = WaveNet(num_classes=num_classes, **wavenet_config).to(device)
 criterion = nn.CrossEntropyLoss()
 optimizer = optim.Adam(model.parameters(), lr=0.001)
 
+output_path = "saves"
+
+if not os.path.exists(output_path):
+    os.makedirs(output_path)
+
 accuracy_values = []
+precision_values = []
+recall_values = []
+f1_values = []
 for fold_idx, (train_idx, val_idx) in enumerate(skf.split(dataset.file_list, [label for _, label in dataset.file_list])):
     print(f'Fold [{fold_idx + 1}/{k_folds}]')
     
@@ -133,11 +142,13 @@ for fold_idx, (train_idx, val_idx) in enumerate(skf.split(dataset.file_list, [la
         epoch_loss = running_loss / len(train_loader)
         print(f"Fold [{fold_idx + 1}/{k_folds}], Epoch [{epoch+1}/{num_epochs}], Loss: {epoch_loss:.4f}")
     
-    torch.save(model.state_dict(), 'saves/wavenet_music_genre.pth')
+    torch.save(model.state_dict(), os.path.join(output_path, 'wavenet_music_genre.pth'))
 
     model.eval()
     correct = 0
     total = 0
+    all_labels = []
+    all_predictions = []
     with torch.no_grad():
         for spectrograms, labels in tqdm(val_loader, desc="Testing"):
             spectrograms, labels = spectrograms.to(device), labels.to(device)
@@ -145,13 +156,28 @@ for fold_idx, (train_idx, val_idx) in enumerate(skf.split(dataset.file_list, [la
             _, predicted = torch.max(outputs, 1)
             total += labels.size(0)
             correct += (predicted == labels).sum().item()
+
+            all_labels.extend(labels.cpu().numpy())
+            all_predictions.extend(predicted.cpu().numpy())
     
     fold_accuracy = 100 * correct / total
+    precision, recall, f1, _ = precision_recall_fscore_support(all_labels, all_predictions, average='weighted')
     accuracy_values.append(fold_accuracy)
-    print(f"Fold [{fold_idx + 1}/{k_folds}], Accuracy on validation set: {fold_accuracy:.2f}%")
+    precision_values.append(precision * 100)
+    recall_values.append(recall * 100)
+    f1_values.append(f1 * 100)
+
+    print(f"Fold [{fold_idx + 1}/{k_folds}], Accuracy on validation set: {fold_accuracy:.2f}%, Precision: {precision:.2f}%, Recall: {recall:.2f}%, F1-Score: {f1:.2f}%")
     print("=" * 50)
 
 avg_accuracy = sum(accuracy_values) / len(accuracy_values)
-print(f'Average accuracy across {k_folds} folds: {avg_accuracy:.2f}%')
+avg_precision = sum(precision_values) / len(precision_values)
+avg_recall = sum(recall_values) / len(recall_values)
+avg_f1 = sum(f1_values) / len(f1_values)
 
-torch.save(model.state_dict(), 'wavenet_music_genre.pth')
+print(f'Average accuracy across {k_folds} folds: {avg_accuracy:.2f}%')
+print(f'Average precision across {k_folds} folds: {avg_precision:.2f}%')
+print(f'Average recall across {k_folds} folds: {avg_recall:.2f}%')
+print(f'Average F1-score across {k_folds} folds: {avg_f1:.2f}%')
+
+torch.save(model.state_dict(), os.path.join(output_path, 'wavenet_music_genre.pth'))

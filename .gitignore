@@ -226,9 +226,11 @@ pyrightconfig.json
 .ionide
 
 # Data
-Data
-Segmented_genres
-Transformed_spectrograms
-saves
+data
+segmented_genres
+transformed_spectrograms
+
+# Wavenet
+trained_nets
 
 # End of https://www.toptal.com/developers/gitignore/api/macos,visualstudiocode,python

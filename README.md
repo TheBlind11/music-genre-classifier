@@ -58,14 +58,14 @@
 
 ### Pre-processing
 
-- [ ] Divisione in battiti delle varie tracce (BPM)
+- [x] Divisione in battiti delle varie tracce (BPM & BPS)
 - [ ] Valutare se serve finestramento
-- [ ] Applicazione delle trasformate (Short-time Fourier transform, Wavelet, Mel-Frequency Cepstral Coefficients (MFCC)) -> spettrogramma
+- [X] Applicazione delle trasformate (Short-time Fourier transform, Wavelet, Mel-Frequency Cepstral Coefficients (MFCC)) -> spettrogramma
 - [ ] Processing degli spettrogrammi per migliorere qualità immagini (es. logaritmica)
 
 ### Training
 
-- [ ] Divisione dataset (train/test split)
+- [X] Divisione dataset (train/test split)
 - [ ] Scelta architettura
 - [ ] Applicazione della CNN
 - [ ] Training

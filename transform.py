@@ -68,8 +68,8 @@ def process_segments(input_base_path, output_base_path):
                         segment_name, _ = os.path.splitext(segment_file)
                         generate_spectrograms(segment_path, genre, track_name, segment_name, output_base_path)
 
-input_base_path = 'Segmented_genres'
-output_base_path = 'Transformed_spectrograms'
+input_base_path = 'segmented_genres'
+output_base_path = 'transformed_spectrograms'
 
 # Process segments to generate and save spectrograms
 process_segments(input_base_path, output_base_path)
