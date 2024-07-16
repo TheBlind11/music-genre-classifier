@@ -2,6 +2,7 @@ import os
 import librosa
 import soundfile as sf
 from tqdm import tqdm
+import shutil
 
 def get_bps(filename):
     try:
@@ -42,7 +43,7 @@ def get_segments(filename, bps, segment_lenght=5):
         y, sr = librosa.load(filename)
         beat_duration = bps
         segment_duration = beat_duration * segment_lenght # Duration of each segment in seconds
-        segment_samples = int(segment_duration * sr)
+        segment_samples = int(segment_duration * sr) # Number of segment samples
         
         segments = []
         for start_sample in range(0, len(y), segment_samples): # From 0 to track lenght with segment lenght steps
@@ -67,7 +68,13 @@ def process_save_segment(dataset_path, bps_data, output_path):
         if segments is not None:
             track_name = os.path.splitext(track)[0] # Remove .wav extension
             track_output_path = os.path.join(output_path, genre, track_name)
-            os.makedirs(track_output_path, exist_ok=True)
+            
+            # Remove the dir if exists
+            if os.path.exists(track_output_path):
+                shutil.rmtree(track_output_path)
+            
+            # Create a dir
+            os.makedirs(track_output_path)
             
             for i, segment in enumerate(segments):
                 segment_filename = f"{track_name}_segment_{i+1}.wav"
