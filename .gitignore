@@ -229,5 +229,6 @@ pyrightconfig.json
 Data
 Segmented_genres
 Transformed_spectrograms
+saves
 
 # End of https://www.toptal.com/developers/gitignore/api/macos,visualstudiocode,python

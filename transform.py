@@ -4,6 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import pywt
 import soundfile as sf
+from tqdm import tqdm
 
 def save_spectrogram_image(S, sr, output_path, title):
     # Save the spectrogram as a matplot image
@@ -59,7 +60,7 @@ def process_segments(input_base_path, output_base_path):
     for genre in os.listdir(input_base_path):
         genre_path = os.path.join(input_base_path, genre)
         if os.path.isdir(genre_path):
-            for track_name in os.listdir(genre_path):
+            for track_name in tqdm(os.listdir(genre_path)):
                 track_path = os.path.join(genre_path, track_name)
                 if os.path.isdir(track_path):
                     for segment_file in os.listdir(track_path):

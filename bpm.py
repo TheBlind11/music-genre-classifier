@@ -38,7 +38,7 @@ def process_dataset(dataset_path):
                         continue
     return bpm_data
 
-def get_segments(filename, bps, segment_lenght=5):
+def get_segments(filename, bps, segment_lenght=2):
     try:
         y, sr = librosa.load(filename)
         beat_duration = bps

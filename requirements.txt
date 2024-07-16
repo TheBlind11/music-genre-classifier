@@ -1,4 +1,7 @@
 torch
+torchvision
+torchaudio
+scikit-learn
 pywavelets
 librosa
 soundfile
