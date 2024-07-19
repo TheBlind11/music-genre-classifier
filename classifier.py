@@ -15,15 +15,19 @@ class MusicDataset(Dataset):
         self.transform = transform
         self.classes = os.listdir(root_dir)
         self.file_list = []
+        # Listing all files and their corresponding labels
         for c in self.classes:
             class_dir = os.path.join(root_dir, c)
             for track in os.listdir(class_dir):
                 for sample in os.listdir(os.path.join(class_dir, track)):
+                    # Save the sample as a tuple with the sample and its label index
                     self.file_list.append((os.path.join(class_dir, track, sample), self.classes.index(c)))
 
+    # return the total number of samples
     def __len__(self):
         return len(self.file_list)
 
+    #  Loads, pads, and transforms audio files into spectrograms.
     def __getitem__(self, idx):
         file_path, label = self.file_list[idx]
         waveform, _ = self.load_and_pad_audio(file_path)
@@ -50,41 +54,44 @@ class MusicDataset(Dataset):
             waveform = waveform[:, :max_samples]
 
         return waveform, sample_rate
-
+# KeyPoints of the WaveNet created:
+## Dilated Convolutions: The use of dilated convolutions allows the network to have a large receptive field without increasing the number of parameters significantly.
+## Adaptive Pooling: Adaptive average pooling is used to ensure that the output size is consistent, regardless of the input length, by reducing the time dimension to 1.
+## Flexibility: The model's architecture allows for easy adjustment of the number of channels, kernel size, and dilation factors.
 class WaveNet(nn.Module):
     def __init__(self, num_classes, in_channels=64, channels=64, kernel_size=3, dilation_factors=[1, 2, 4, 8, 16, 32, 64, 128, 256, 512]):
         super(WaveNet, self).__init__()
-        self.num_classes = num_classes
-        self.in_channels = in_channels
-        self.channels = channels
-        self.kernel_size = kernel_size
-        self.dilation_factors = dilation_factors
+        self.num_classes = num_classes # Number of output classes or classification (genres)
+        self.in_channels = in_channels # Number of input channels (64)
+        self.channels = channels # Number of output channels for each conv. layer (64)
+        self.kernel_size = kernel_size # Kernel size of the convolutional layers (3)
+        self.dilation_factors = dilation_factors # List of dilation factors for the convolutional layers
         
         self.conv_layers = nn.ModuleList()
         for dilation in dilation_factors:
             self.conv_layers.append(
                 nn.Conv1d(in_channels, channels, kernel_size, stride=1, padding=dilation, dilation=dilation)
-            )
+            ) # List of convolutional layers with increasing dilation factors, the padding is calculated based on the dilation factor
         
-        self.final_conv = nn.Conv1d(channels, num_classes, kernel_size=1)
-        self.relu = nn.ReLU()
-        self.pool = nn.AdaptiveAvgPool1d(1)
+        self.final_conv = nn.Conv1d(channels, num_classes, kernel_size=1) # Final 1x1 conv. layer to produce the output
+        self.relu = nn.ReLU() # ReLU activation function
+        self.pool = nn.AdaptiveAvgPool1d(1) # Adpative average pooling layer, to reduce the output to a single value per channel
 
-    def forward(self, x):
-        for conv in self.conv_layers:
+    def forward(self, x): # The forward method defines the flow of data through the network
+        for conv in self.conv_layers: #  The input x passes through each convolutional layer in conv_layers sequentially, with a ReLU activation applied after each layer
             x = self.relu(conv(x))
 
-        x = self.final_conv(x)
-        x = self.pool(x)
-        x = x.squeeze(2)
+        x = self.final_conv(x) # The output of the last conv. layer is passed through a final 1x1 conv. layer
+        x = self.pool(x) # The result is pooled to produce a single value per channel
+        x = x.squeeze(2) # The output is squeezed to remove the extra dimension
         
         return x
 
-transform = None
+transform = None # Choose the transform
 
 dataset = MusicDataset(root_dir='segmented_genres', transform=transform)
 
-k_folds = 3
+k_folds = 3 # Number of folds for cross-validation
 skf = StratifiedKFold(n_splits=k_folds, shuffle=True, random_state=42)
 
 num_classes = len(dataset.classes)
@@ -102,8 +109,8 @@ elif torch.backends.mps.is_available():
     device = "mps"
 
 model = WaveNet(num_classes=num_classes, **wavenet_config).to(device)
-criterion = nn.CrossEntropyLoss()
-optimizer = optim.Adam(model.parameters(), lr=0.001)
+criterion = nn.CrossEntropyLoss() # Specifies the loss function use ('CrossEntropyLoss')
+optimizer = optim.Adam(model.parameters(), lr=0.001) # Specifies the optimizer ('Adam')
 
 output_path = "trained_nets"
 
@@ -115,6 +122,7 @@ precision_values = []
 recall_values = []
 f1_values = []
 for fold_idx, (train_idx, val_idx) in enumerate(skf.split(dataset.file_list, [label for _, label in dataset.file_list])):
+    # For each fold, splits the data into training and validation sets
     print(f'Fold [{fold_idx + 1}/{k_folds}]')
     
     train_sampler = SubsetRandomSampler(train_idx)
@@ -123,6 +131,7 @@ for fold_idx, (train_idx, val_idx) in enumerate(skf.split(dataset.file_list, [la
     train_loader = DataLoader(dataset, batch_size=32, sampler=train_sampler)
     val_loader = DataLoader(dataset, batch_size=32, sampler=val_sampler)
     
+    # Train the model for a specified number of epochs
     num_epochs = 10
     for epoch in range(num_epochs):
         model.train()
@@ -144,6 +153,7 @@ for fold_idx, (train_idx, val_idx) in enumerate(skf.split(dataset.file_list, [la
     
     torch.save(model.state_dict(), os.path.join(output_path, 'wavenet_music_genre.pth'))
 
+    # Evaluates the model on the validation set
     model.eval()
     correct = 0
     total = 0
@@ -160,6 +170,7 @@ for fold_idx, (train_idx, val_idx) in enumerate(skf.split(dataset.file_list, [la
             all_labels.extend(labels.cpu().numpy())
             all_predictions.extend(predicted.cpu().numpy())
     
+    # Calculate and store performance metrics
     fold_accuracy = 100 * correct / total
     precision, recall, f1, _ = precision_recall_fscore_support(all_labels, all_predictions, average='weighted')
     accuracy_values.append(fold_accuracy)
