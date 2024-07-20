@@ -13,7 +13,7 @@ import matplotlib.pyplot as plt
 from multiprocessing import Pool, cpu_count
 
 class MusicDataset(Dataset):
-    def __init__(self, root_dir, transform=None, transform_type='mel', precompute_wavelet=False):
+    def __init__(self, root_dir, transform=None, transform_type='wavelet', precompute_wavelet=True):
         self.root_dir = root_dir
         self.transform = transform
         self.transform_type = transform_type
@@ -30,15 +30,12 @@ class MusicDataset(Dataset):
             self.precomputed_wavelets = self.precompute_wavelets()
 
     def precompute_wavelets(self):
-        with Pool(cpu_count()) as p:
-            precomputed_wavelets = list(tqdm(p.imap(self.process_wavelet, self.file_list), total=len(self.file_list), desc="Precomputing wavelets"))
+        precomputed_wavelets = []
+        for file_path, _ in tqdm(self.file_list, desc="Precomputing wavelets"):
+            waveform, _ = self.load_and_pad_audio(file_path)
+            spectrogram = self.wavelet_transform(waveform)
+            precomputed_wavelets.append(spectrogram)
         return precomputed_wavelets
-
-    def process_wavelet(self, file_info):
-        file_path, _ = file_info
-        waveform, _ = self.load_and_pad_audio(file_path)
-        spectrogram = self.wavelet_transform(waveform)
-        return spectrogram
 
     def __len__(self):
         return len(self.file_list)
@@ -134,7 +131,7 @@ def save_metrics_plots(metrics_dict, transform_type):
     plt.close()
 
 if __name__ == '__main__':
-    transform_type = 'Mel-Frequency Cepstral Coefficient (MFCC)'
+    transform_type = 'Wavelet Transform'
     dataset = MusicDataset(root_dir='segmented_genres')
 
     k_folds = 10
