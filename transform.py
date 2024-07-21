@@ -20,41 +20,13 @@ def generate_spectrograms(segment_path, genre, track_name, segment_name, output_
     y, sr = sf.read(segment_path)
     
     # Create output directories for each transformation
-    stft_dir = os.path.join(output_base_path, 'STFT', genre, track_name)
     wavelet_dir = os.path.join(output_base_path, 'Wavelet', genre, track_name)
-    mfcc_dir = os.path.join(output_base_path, 'MFCC', genre, track_name)
-    os.makedirs(stft_dir, exist_ok=True)
     os.makedirs(wavelet_dir, exist_ok=True)
-    os.makedirs(mfcc_dir, exist_ok=True)
-    
-    # Short-Time Fourier Transform (STFT)
-    D = np.abs(librosa.stft(y))
-    DB = librosa.amplitude_to_db(D, ref=np.max) # From amplitude to dB
-    stft_output_path = os.path.join(stft_dir, f"{segment_name}_stft.png")
-    save_spectrogram_image(DB, sr, stft_output_path, f"STFT Spectrogram of {segment_name}")
     
     # Wavelet Transform
-    coeffs, freqs = pywt.cwt(y, scales=np.arange(1, 128), wavelet='morl', sampling_period=1/sr)
-    wavelet_output_path = os.path.join(wavelet_dir, f"{segment_name}_wavelet.png")
-    plt.figure(figsize=(10, 4))
-    plt.imshow(np.abs(coeffs), extent=[0, len(y)/sr, 1, 128], cmap='PRGn', aspect='auto')
-    # [0, len(y)/sr]: Maps the x-axis from 0 to the duration of the audio signal in seconds
-    # [1, 128]: Maps the y-axis from 1 to 128, which corresponds to the scales used in the Wavelet Transform.
-    plt.title(f"Wavelet Spectrogram of {segment_name}")
-    plt.tight_layout()
-    plt.savefig(wavelet_output_path, bbox_inches='tight', pad_inches=0)
-    plt.close()
-    
-    # Mel-Frequency Cepstral Coefficients (MFCC)
-    mfccs = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=13)
-    mfcc_output_path = os.path.join(mfcc_dir, f"{segment_name}_mfcc.png")
-    plt.figure(figsize=(10, 4))
-    librosa.display.specshow(mfccs, sr=sr, x_axis='time')
-    plt.colorbar()
-    plt.title(f"MFCC of {segment_name}")
-    plt.tight_layout()
-    plt.savefig(mfcc_output_path)
-    plt.close()
+    coeffs, freqs = pywt.cwt(y, scales=np.arange(1, 65), wavelet='morl', sampling_period=1/sr)
+    wavelet_output_path = os.path.join(wavelet_dir, f"{segment_name}_wavelet.npy")
+    np.save(wavelet_output_path, coeffs)
 
 def process_segments(input_base_path, output_base_path):
     for genre in os.listdir(input_base_path):
