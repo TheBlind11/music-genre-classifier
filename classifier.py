@@ -13,46 +13,46 @@ import matplotlib.pyplot as plt
 from multiprocessing import Pool, cpu_count
 
 class MusicDataset(Dataset):
-    def __init__(self, root_dir, transform=None, transform_type='mel', precompute_wavelet=False):
+    def __init__(self, root_dir, transform=None, transform_type='wavelet'):
         self.root_dir = root_dir
         self.transform = transform
         self.transform_type = transform_type
-        self.precompute_wavelet = precompute_wavelet
         self.classes = os.listdir(root_dir)
         self.file_list = []
-        for c in self.classes:
-            class_dir = os.path.join(root_dir, c)
-            for track in os.listdir(class_dir):
-                for sample in os.listdir(os.path.join(class_dir, track)):
-                    self.file_list.append((os.path.join(class_dir, track, sample), self.classes.index(c)))
-
-        if self.precompute_wavelet:
-            self.precomputed_wavelets = self.precompute_wavelets()
-
-    def precompute_wavelets(self):
-        with Pool(cpu_count()) as p:
-            precomputed_wavelets = list(tqdm(p.imap(self.process_wavelet, self.file_list), total=len(self.file_list), desc="Precomputing wavelets"))
-        return precomputed_wavelets
-
-    def process_wavelet(self, file_info):
-        file_path, _ = file_info
-        waveform, _ = self.load_and_pad_audio(file_path)
-        spectrogram = self.wavelet_transform(waveform)
-        return spectrogram
+        
+        if transform_type == 'wavelet':
+            wavelet_transform_path = 'transformed_spectrograms/Wavelet'
+            for genre in os.listdir(wavelet_transform_path):
+                genre_dir = os.path.join(wavelet_transform_path, genre)
+                for track in os.listdir(genre_dir):
+                    track_dir = os.path.join(genre_dir, track)
+                    for segment in os.listdir(track_dir):
+                        file_path = os.path.join(track_dir, segment)
+                        self.file_list.append((file_path, self.classes.index(genre)))
+        else:                
+            for c in self.classes:
+                class_dir = os.path.join(root_dir, c)
+                for track in os.listdir(class_dir):
+                    for sample in os.listdir(os.path.join(class_dir, track)):
+                        self.file_list.append((os.path.join(class_dir, track, sample), self.classes.index(c)))
 
     def __len__(self):
         return len(self.file_list)
 
     def __getitem__(self, idx):
         file_path, label = self.file_list[idx]
-        if self.precompute_wavelet:
-            spectrogram = self.precomputed_wavelets[idx]
+        if self.transform_type == 'wavelet':
+            spectrogram = np.load(file_path)
+            spectrogram = torch.tensor(spectrogram, dtype=torch.float32)
+            # Ensure the spectrogram has a consistent shape, for example (64, 690)
+            target_shape = (64, 690)
+            # The precomputed wavelets have different times we need to add some padding
+            if spectrogram.shape != target_shape:
+                spectrogram = self.pad_or_crop_spectrogram(spectrogram, target_shape)
         else:
             waveform, _ = self.load_and_pad_audio(file_path)
             if self.transform_type == 'stft':
                 spectrogram = self.stft_transform(waveform)
-            elif self.transform_type == 'wavelet':
-                spectrogram = self.wavelet_transform(waveform)
             elif self.transform_type == 'mel':
                 spectrogram = self.mel_transform(waveform)
 
@@ -60,6 +60,25 @@ class MusicDataset(Dataset):
             spectrogram = self.transform(spectrogram)
 
         return spectrogram, label
+    
+    # Add padding to the wavelet transformed spectrogram to make it consistent with the other spectrograms
+    def pad_or_crop_spectrogram(self, spectrogram, target_shape): 
+        target_channels, target_time = target_shape
+        channels, time = spectrogram.shape
+        
+        if time < target_time:
+            pad_size = target_time - time
+            spectrogram = torch.nn.functional.pad(spectrogram, (0, pad_size))
+        elif time > target_time:
+            spectrogram = spectrogram[:, :target_time]
+
+        if channels < target_channels:
+            pad_size = target_channels - channels
+            spectrogram = torch.nn.functional.pad(spectrogram, (0, 0, 0, pad_size))
+        elif channels > target_channels:
+            spectrogram = spectrogram[:target_channels, :]
+
+        return spectrogram
 
     def load_and_pad_audio(self, file_path, max_duration=5):
         waveform, sample_rate = torchaudio.load(file_path)
@@ -76,13 +95,9 @@ class MusicDataset(Dataset):
         return spectrogram
     
     def stft_transform(self, waveform):
-        spectrogram = torchaudio.transforms.Spectrogram(n_fft=126)(waveform).squeeze(0)
+        spectrogram = torchaudio.transforms.Spectrogram(n_fft=126)(waveform).squeeze(0) # Using 64 channels ((126/2) + 1)
         return spectrogram
 
-    def wavelet_transform(self, waveform):
-        coeffs, _ = pywt.cwt(waveform.numpy(), scales=np.arange(1, 65), wavelet='mexh', axis=1)
-        spectrogram = torch.tensor(coeffs).squeeze(1).float()
-        return spectrogram
 
 class WaveNet(nn.Module):
     def __init__(self, num_classes, in_channels=64, channels=64, kernel_size=3, dilation_factors=[1, 2, 4, 8, 16, 32, 64, 128, 256, 512]):
@@ -125,8 +140,9 @@ def save_metrics_plots(metrics_dict, transform_type):
     plt.close()
 
 if __name__ == '__main__':
-    transform_type = 'Mel-Frequency Cepstral Coefficient (MFCC)'
-    dataset = MusicDataset(root_dir='segmented_genres', transform_type="mel")
+    
+    transform_type = 'Wavelet Transform'
+    dataset = MusicDataset(root_dir='segmented_genres', transform_type="wavelet")
 
     k_folds = 10
     skf = StratifiedKFold(n_splits=k_folds, shuffle=True, random_state=42)
