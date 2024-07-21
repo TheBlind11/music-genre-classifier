@@ -13,7 +13,7 @@ import matplotlib.pyplot as plt
 from multiprocessing import Pool, cpu_count
 
 class MusicDataset(Dataset):
-    def __init__(self, root_dir, transform=None, transform_type='wavelet', precompute_wavelet=True):
+    def __init__(self, root_dir, transform=None, transform_type='mel', precompute_wavelet=False):
         self.root_dir = root_dir
         self.transform = transform
         self.transform_type = transform_type
@@ -30,12 +30,15 @@ class MusicDataset(Dataset):
             self.precomputed_wavelets = self.precompute_wavelets()
 
     def precompute_wavelets(self):
-        precomputed_wavelets = []
-        for file_path, _ in tqdm(self.file_list, desc="Precomputing wavelets"):
-            waveform, _ = self.load_and_pad_audio(file_path)
-            spectrogram = self.wavelet_transform(waveform)
-            precomputed_wavelets.append(spectrogram)
+        with Pool(cpu_count()) as p:
+            precomputed_wavelets = list(tqdm(p.imap(self.process_wavelet, self.file_list), total=len(self.file_list), desc="Precomputing wavelets"))
         return precomputed_wavelets
+
+    def process_wavelet(self, file_info):
+        file_path, _ = file_info
+        waveform, _ = self.load_and_pad_audio(file_path)
+        spectrogram = self.wavelet_transform(waveform)
+        return spectrogram
 
     def __len__(self):
         return len(self.file_list)
@@ -68,26 +71,17 @@ class MusicDataset(Dataset):
             waveform = waveform[:, :max_samples]
         return waveform, sample_rate
 
+    def mel_transform(self, waveform):
+        spectrogram = torchaudio.transforms.MelSpectrogram(n_mels=64)(waveform).squeeze(0)
+        return spectrogram
+    
     def stft_transform(self, waveform):
-        spectrogram = torchaudio.transforms.Spectrogram(
-            n_fft=400,
-            hop_length=160,
-            power=2,
-        )(waveform).squeeze(0)
-        spectrogram = spectrogram[:64, :]
+        spectrogram = torchaudio.transforms.Spectrogram(n_fft=126)(waveform).squeeze(0)
         return spectrogram
 
     def wavelet_transform(self, waveform):
         coeffs, _ = pywt.cwt(waveform.numpy(), scales=np.arange(1, 65), wavelet='mexh', axis=1)
         spectrogram = torch.tensor(coeffs).squeeze(1).float()
-        return spectrogram
-
-    def mel_transform(self, waveform):
-        spectrogram = torchaudio.transforms.MelSpectrogram(
-            n_mels=64,
-            n_fft=400,
-            hop_length=160,
-        )(waveform).squeeze(0)
         return spectrogram
 
 class WaveNet(nn.Module):
@@ -116,7 +110,7 @@ class WaveNet(nn.Module):
         return x
 
 def save_metrics_plots(metrics_dict, transform_type):
-    folder_path = os.path.join('metrics', transform_type)
+    folder_path = os.path.join('metrics', transform_type + "_fixed")
     os.makedirs(folder_path, exist_ok=True)
     
     plt.figure()
@@ -131,8 +125,8 @@ def save_metrics_plots(metrics_dict, transform_type):
     plt.close()
 
 if __name__ == '__main__':
-    transform_type = 'Wavelet Transform'
-    dataset = MusicDataset(root_dir='segmented_genres')
+    transform_type = 'Mel-Frequency Cepstral Coefficient (MFCC)'
+    dataset = MusicDataset(root_dir='segmented_genres', transform_type="mel")
 
     k_folds = 10
     skf = StratifiedKFold(n_splits=k_folds, shuffle=True, random_state=42)
@@ -217,7 +211,7 @@ if __name__ == '__main__':
         metrics_dict['Recall'].append(recall * 100)
         metrics_dict['F1-Score'].append(f1 * 100)
 
-        print(f"Fold [{fold_idx + 1}/{k_folds}], Accuracy on validation set: {fold_accuracy:.2f}%, Precision: {precision:.2f}%, Recall: {recall:.2f}%, F1-Score: {f1:.2f}%")
+        print(f"Fold [{fold_idx + 1}/{k_folds}], Accuracy on validation set: {fold_accuracy:.2f}%, Precision: {precision * 100:.2f}%, Recall: {recall * 100:.2f}%, F1-Score: {f1 * 100:.2f}%")
         print("=" * 50)
 
     # Save combined metrics plot after all folds are complete
